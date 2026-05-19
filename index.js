@@ -1,5 +1,24 @@
 require('dotenv').config();
+const { Client, Events, ChannelType, EmbedBuilder, GatewayIntentBits } = require('discord.js');
 
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
+const tempCategories = new Map();
+
+// ========================
+// CREATE GAME HUB
+// ========================
+client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isCommand()) return;
+    
+    if (interaction.commandName === 'createhub') {
+        try {
+            const { guild, member } = interaction;
+            
+            // CREATE CATEGORY
+            const category = await guild.channels.create({
+                name: 'Game Hub',
+                type: ChannelType.GuildCategory,
+            });
 
             // CREATE TEXT CHANNEL
             const textChannel = await guild.channels.create({
@@ -23,11 +42,9 @@ require('dotenv').config();
             const embed = new EmbedBuilder()
                 .setTitle('✅ Game Hub Created')
                 .setDescription(
-                    `Category: ${category.name}
-` +
-                    `Text Channel: ${textChannel}
-` +
-                    `Voice Channel: ${voiceChannel}`
+                    `Category: ${category.name}\n` +
+                    `Text Channel: ${textChannel.mention}\n` +
+                    `Voice Channel: ${voiceChannel.mention}`
                 )
                 .setColor(0x57F287);
 
@@ -47,13 +64,13 @@ require('dotenv').config();
     }
 });
 
-// =========================
+// ========================
 // AUTO CLEANUP
-// =========================
+// ========================
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+    if (!oldState.guild) return;
 
     for (const [categoryId, data] of tempCategories.entries()) {
-
         const category = oldState.guild.channels.cache.get(categoryId);
 
         if (!category) {
@@ -74,7 +91,6 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
                 }
 
                 await category.delete();
-
                 tempCategories.delete(categoryId);
 
                 console.log(`Deleted empty category: ${category.name}`);
@@ -86,7 +102,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     }
 });
 
-// =========================
+// ========================
 // LOGIN
-// =========================
+// ========================
 client.login(process.env.TOKEN);

@@ -1,8 +1,33 @@
 require('dotenv').config();
-const { Client, Events, ChannelType, EmbedBuilder, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { Client, Events, ChannelType, EmbedBuilder, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
 const tempCategories = new Map();
+
+// ========================
+// REGISTER SLASH COMMANDS
+// ========================
+const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+
+async function registerCommands() {
+    try {
+        const commands = [
+            new SlashCommandBuilder()
+                .setName('gamepanel')
+                .setDescription('Display the game hub panel (Admin only)')
+        ];
+
+        await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
+        console.log('✅ Slash commands registered successfully');
+    } catch (error) {
+        console.error('❌ Error registering commands:', error);
+    }
+}
+
+client.once(Events.ClientReady, () => {
+    console.log(`✅ Bot is online as ${client.user.tag}`);
+    registerCommands();
+});
 
 // ========================
 // SEND PANEL WITH BUTTONS
@@ -18,7 +43,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             if (!member.permissions.has('Administrator')) {
                 return await interaction.reply({
                     content: '❌ You must be an administrator to use this command.',
-                    ephemeral: true,
+                    flags: 64,
                 });
             }
 
@@ -57,7 +82,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             await interaction.reply({
                 embeds: [embed],
                 components: [row],
-                ephemeral: true,
+                flags: 64,
             });
 
         } catch (error) {
@@ -65,7 +90,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
             await interaction.reply({
                 content: '❌ Error creating the game panel.',
-                ephemeral: true,
+                flags: 64,
             });
         }
     }
@@ -77,13 +102,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isButton()) return;
 
-    const { customId, member, guild, showModal } = interaction;
+    const { customId, member, guild } = interaction;
 
     // Check if user is admin
     if (!member.permissions.has('Administrator')) {
         return await interaction.reply({
             content: '❌ You must be an administrator to create hubs.',
-            ephemeral: true,
+            flags: 64,
         });
     }
 
@@ -103,7 +128,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const row = new ActionRowBuilder().addComponents(categoryNameInput);
         modal.addComponents(row);
 
-        await showModal(modal);
+        await interaction.showModal(modal);
     } else if (customId.startsWith('create_hub_')) {
         // Handle predefined game hubs
         const gameType = customId.replace('create_hub_', '');
@@ -133,7 +158,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
             await interaction.reply({
                 content: '❌ Error creating the custom hub.',
-                ephemeral: true,
+                flags: 64,
             });
         }
     }
@@ -144,7 +169,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 // ========================
 async function createGameHub(interaction, guild, member, categoryName) {
     try {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 });
 
         // CREATE CATEGORY
         const category = await guild.channels.create({
